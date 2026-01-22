@@ -1,0 +1,35 @@
+/**
+ * リポジトリのGitHubコンテンツを取得する関数群
+ */
+
+/**
+ * リポジトリのREADMEを取得します。
+ * mainブランチから取得を試み、失敗した場合はmasterブランチを試します。
+ * @param params パラメータオブジェクト
+ * @param params.owner リポジトリオーナー
+ * @param params.repo リポジトリ名
+ * @returns READMEのテキストコンテンツ（取得できない場合はnull）
+ */
+export async function fetchRepositoryReadme({
+  owner,
+  repo,
+}: {
+  owner: string;
+  repo: string;
+}): Promise<string | null> {
+  // まずmainブランチを試す
+  const mainUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/README.md`;
+  const mainResp = await fetch(mainUrl);
+  if (mainResp.ok) {
+    return await mainResp.text();
+  }
+
+  // 失敗したらmasterブランチを試す
+  const masterUrl = `https://raw.githubusercontent.com/${owner}/${repo}/master/README.md`;
+  const masterResp = await fetch(masterUrl);
+  if (masterResp.ok) {
+    return await masterResp.text();
+  }
+
+  return null;
+}

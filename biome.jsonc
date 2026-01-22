@@ -103,7 +103,7 @@
       }
     },
     {
-      "includes": ["**/route.ts", "**/route.tsx"],
+      "includes": ["**/logger.ts"],
       "linter": {
         "enabled": false
       }
