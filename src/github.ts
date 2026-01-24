@@ -8,7 +8,7 @@
  * @param params パラメータオブジェクト
  * @param params.owner リポジトリオーナー
  * @param params.repo リポジトリ名
- * @returns READMEのテキストコンテンツ（取得できない場合はnull）
+ * @returns READMEのテキストコンテンツ(取得できない場合はnull)
  */
 export async function fetchRepositoryReadme({
   owner,

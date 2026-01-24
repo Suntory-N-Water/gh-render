@@ -5,7 +5,7 @@ import type { Repository, TrendItem } from './types';
  * @param params パラメータオブジェクト
  * @param params.db D1データベース
  * @param params.item トレンドアイテム
- * @param params.summary AI要約（オプション）
+ * @param params.summary AI要約(オプション)
  */
 export async function saveOrUpdateRepository({
   db,
@@ -56,7 +56,7 @@ export async function saveOrUpdateRepository({
  * @param params パラメータオブジェクト
  * @param params.db D1データベース
  * @param params.url リポジトリURL
- * @returns リポジトリ情報（存在しない場合はnull）
+ * @returns リポジトリ情報(存在しない場合はnull)
  */
 async function getRepository({
   db,

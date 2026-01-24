@@ -3,7 +3,7 @@ import type { TrendItem } from './types';
 
 /**
  * GitHubのトレンド情報を取得します。
- * @param targetLanguage 取得対象のプログラミング言語（省略時は全言語）
+ * @param targetLanguage 取得対象のプログラミング言語(省略時は全言語)
  * @returns トレンドリポジトリのリスト
  */
 export async function fetchTrendingRepositories(
