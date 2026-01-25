@@ -12,14 +12,6 @@ import type {
 
 const logger = getLogger('scheduler');
 
-// 言語別の取得件数設定
-const LANGUAGE_CONFIG = [
-  { language: 'typescript', limit: 3 },
-  { language: 'rust', limit: 3 },
-  { language: 'python', limit: 3 },
-  { language: '', limit: 5 }, // 全言語
-];
-
 export default {
   /**
    * Cronトリガーによって定期実行されるハンドラ
@@ -39,13 +31,16 @@ export default {
         ? createDiscordAdapter(webhookUrl)
         : createMockAdapter();
 
+    // 環境変数から言語設定を読み込み
+    const languageConfig = loadLanguageConfig(env);
+
     // 全言語のトレンドを収集
     const allItems: Array<{
       label: string;
       items: (TrendItem & { summary: string })[];
     }> = [];
 
-    for (const config of LANGUAGE_CONFIG) {
+    for (const config of languageConfig) {
       const result = await processLanguage({
         targetLanguage: config.language,
         limit: config.limit,
@@ -218,4 +213,25 @@ function createMockAdapter(): NotificationAdapter {
       }
     },
   };
+}
+
+/**
+ * 環境変数から言語設定を読み込む
+ */
+function loadLanguageConfig(
+  env: Env,
+): Array<{ language: string; limit: number }> {
+  const languages = env.LANGUAGES.split(',');
+  const limits = env.LIMITS.split(',').map(Number);
+
+  if (languages.length !== limits.length) {
+    throw new Error(
+      `LANGUAGES and LIMITS length mismatch: ${languages.length} vs ${limits.length}`,
+    );
+  }
+
+  return languages.map((language, index) => ({
+    language,
+    limit: limits[index],
+  }));
 }

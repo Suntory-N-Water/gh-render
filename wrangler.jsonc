@@ -22,5 +22,12 @@
   ],
   "ai": {
     "binding": "AI"
+  },
+  "vars": {
+    // トレンド取得対象の言語設定(カンマ区切り)
+    // 空文字列は全言語を表す
+    "LANGUAGES": "typescript,rust,python,",
+    // 各言語の取得件数上限(カンマ区切り、LANGUAGESと対応)
+    "LIMITS": "5,3,3,5"
   }
 }
