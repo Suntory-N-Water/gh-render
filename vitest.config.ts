@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 
 export default defineConfig({
   test: {
@@ -7,4 +8,9 @@ export default defineConfig({
     restoreMocks: true,
     env: { AGENT: '1' },
   },
+  plugins: [
+    cloudflareTest({
+      wrangler: { configPath: './wrangler.jsonc' },
+    }),
+  ],
 });

@@ -167,3 +167,6 @@ dist
 .wrangler/
 
 .claude/plans/*.md
+
+build/
+cloudflare-testing

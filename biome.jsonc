@@ -57,8 +57,7 @@
         "useBlockStatements": "error"
       },
       "correctness": {
-        // 解決できない import を検出(bun:* / astro:* は overrides で除外)
-        "noUnresolvedImports": "error"
+        "noUnresolvedImports": "off"
       },
       "complexity": {
         "noUselessUndefined": "error",

@@ -42,7 +42,9 @@
       "WebFetch",
       "WebSearch",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rtk *)",
+      "Bash(notebooklm *)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
