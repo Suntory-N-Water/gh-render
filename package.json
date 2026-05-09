@@ -2,9 +2,12 @@
   "name": "github-trending-notifier",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
+    "build": "tsc -b && vite build",
     "deploy": "wrangler deploy --minify",
-    "dev": "wrangler dev --test-scheduled",
+    "dev": "vite",
+    "preview": "vite preview",
     "start": "wrangler dev --test-scheduled",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply github-trending-db --local",
@@ -16,25 +19,32 @@
     "lint:ai": "set -o pipefail && biome lint . --reporter=github 2>&1 | { grep '^::' || true; }",
     "lint:fix": "biome lint --write .",
     "lint:unsafe-fix": "biome lint --write --unsafe .",
-    "type-check": "tsc --noEmit",
-    "type-check:ai": "tsc --noEmit --pretty false",
+    "type-check": "tsc -b",
+    "type-check:ai": "tsc -b 2>&1",
     "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.4.14",
-    "bun-types": "^1.3.13",
-    "drizzle-kit": "^0.31.10",
-    "typed-query-selector": "^2.12.2",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.90.0"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.18",
     "linkedom": "^0.18.12",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.14",
+    "@cloudflare/vite-plugin": "^1.36.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "bun-types": "^1.3.13",
+    "drizzle-kit": "^0.31.10",
+    "typed-query-selector": "^2.12.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.11",
+    "wrangler": "^4.90.0"
   }
 }
