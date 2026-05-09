@@ -1,5 +1,5 @@
-import { getLogger } from './logger';
 import type { NotificationAdapter, NotificationContent } from '../types';
+import { getLogger } from './logger';
 
 const logger = getLogger('notification');
 
@@ -99,8 +99,6 @@ function getLanguageColor(language: string): number {
 
 /**
  * Discord通知アダプタを作成します。
- * @param webhookUrl Discord Webhook URL
- * @returns 通知アダプタ
  */
 export function createDiscordAdapter(webhookUrl: string): NotificationAdapter {
   return {
@@ -123,7 +121,7 @@ export function createDiscordAdapter(webhookUrl: string): NotificationAdapter {
         chunks.push(content.items.slice(i, i + MAX_EMBEDS_PER_MESSAGE));
       }
 
-      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
         const chunk = chunks[chunkIndex];
 
         const embeds = chunk.map((item, indexInChunk) => {

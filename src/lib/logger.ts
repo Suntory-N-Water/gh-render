@@ -160,7 +160,7 @@ function createCoreLogger(): AppLogger {
 
 function formatContextValue(value: unknown): string | undefined {
   if (value === undefined || value === null) {
-    return undefined;
+    return;
   }
 
   if (typeof value === 'string') {

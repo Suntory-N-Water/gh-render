@@ -2,11 +2,6 @@ import type { Repository, TrendItem } from '../types';
 
 /**
  * リポジトリ情報をデータベースに保存または更新します。
- * @param params パラメータオブジェクト
- * @param params.db D1データベース
- * @param params.item トレンドアイテム
- * @param params.summary AI要約(オプション)
- * @param params.readmeContent README本文(オプション)
  */
 export async function saveOrUpdateRepository({
   db,
@@ -99,10 +94,6 @@ async function getRepository({
 
 /**
  * 複数のURLを指定してリポジトリ情報を一括取得します。
- * @param params パラメータオブジェクト
- * @param params.db D1データベース
- * @param params.urls リポジトリURLのリスト
- * @returns URLをキーとしたリポジトリ情報のMap
  */
 export async function getRepositories({
   db,

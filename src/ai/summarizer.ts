@@ -4,12 +4,6 @@ const logger = getLogger('summarizer');
 
 /**
  * Cloudflare Workers AIを使用してリポジトリの要約を生成します。
- * @param params パラメータオブジェクト
- * @param params.ai Cloudflare AIバインディング
- * @param params.name リポジトリ名
- * @param params.description 元の説明文
- * @param params.readme READMEコンテンツ
- * @returns 生成された要約(失敗時は元の説明文)
  */
 export async function generateSummary({
   ai,
