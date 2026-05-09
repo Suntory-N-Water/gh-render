@@ -1,0 +1,43 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+default_permissions = "workspace"
+model_reasoning_summary = "auto"
+model_verbosity = "medium"
+web_search = "cached"
+
+[features]
+codex_hooks = true
+shell_snapshot = true
+multi_agent = true
+
+[permissions]
+
+[permissions.workspace.filesystem]
+":project_roots" = { "." = "write", "**/*.env" = "none" }
+
+[tui]
+status_line = [
+    "model-with-reasoning",
+    "context-remaining",
+    "git-branch",
+    "current-dir",
+]
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "afplay /System/Library/Sounds/Glass.aiff"
+timeout = 5
+statusMessage = "完了通知音を再生中"
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "sh -c 'bun run type-check >&2'"
+timeout = 120
+statusMessage = "静的解析を実行中"
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]

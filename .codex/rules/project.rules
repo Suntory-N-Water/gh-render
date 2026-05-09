@@ -1,0 +1,55 @@
+# deny (実行拒否) の設定
+prefix_rule(
+    pattern=["rm", "-rf"],
+    decision="forbidden",
+    justification="rm -rf の実行は禁止されています"
+)
+
+prefix_rule(
+    pattern=["sudo"],
+    decision="forbidden",
+    justification="sudo は許可されていません"
+)
+
+# ask (都度確認) の設定
+prefix_rule(
+    pattern=["git", "push"],
+    decision="prompt",
+    justification="プッシュ前に内容を確認してください"
+)
+
+prefix_rule(
+    pattern=["git", "commit"],
+    decision="prompt"
+)
+
+prefix_rule(
+    pattern=["curl"],
+    decision="prompt"
+)
+
+# allow (自動許可) の設定
+prefix_rule(
+    pattern=["pnpm", "run"],
+    decision="allow"
+)
+
+prefix_rule(
+   pattern=["bun", "run"],
+    decision="allow"
+)
+
+prefix_rule(
+    pattern=["git", "status"],
+    decision="allow"
+)
+
+prefix_rule(
+    pattern=["gh"],
+    decision="allow"
+)
+
+prefix_rule(
+    pattern=["pnpm", "filter"],
+    decision="allow"
+)

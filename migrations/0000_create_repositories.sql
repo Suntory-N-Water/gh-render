@@ -1,8 +1,5 @@
 CREATE TABLE IF NOT EXISTS repositories (
   url TEXT PRIMARY KEY,
-  language TEXT NOT NULL DEFAULT 'Unknown',
-  repository_description TEXT NOT NULL DEFAULT '',
-  readme_content TEXT,
   summary TEXT,
   first_notified_at INTEGER NOT NULL,
   last_updated_at INTEGER NOT NULL,

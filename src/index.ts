@@ -1,9 +1,10 @@
-import { fetchRepositoryReadme } from './github';
-import { getLogger } from './logger';
-import { createDiscordAdapter } from './notification';
-import { getRepositories, saveOrUpdateRepository } from './repository';
-import { fetchTrendingRepositories } from './scraper';
-import { generateSummary } from './summarizer';
+import { generateSummary } from './ai/summarizer';
+import { fetchRepositoryReadme } from './crawler/github';
+import { fetchTrendingRepositories } from './crawler/scraper';
+import { getLogger } from './lib/logger';
+import { createDiscordAdapter } from './lib/notification';
+import { normalizeReadmeMarkdown } from './lib/readme-normalizer';
+import { getRepositories, saveOrUpdateRepository } from './lib/repository';
 import type {
   NotificationAdapter,
   NotificationContent,
@@ -67,7 +68,7 @@ export default {
 
 /**
  * README取得と要約生成を行います
- * エラー時はdescriptionにフォールバック
+ * エラー時は説明文にフォールバック
  */
 async function fetchAndSummarize({
   item,
@@ -75,24 +76,31 @@ async function fetchAndSummarize({
 }: {
   item: TrendItem;
   ai: Ai;
-}): Promise<string> {
+}): Promise<{ summary: string; readmeContent: string | null }> {
   try {
     const [owner, repo] = item.name.split('/');
     const readme = await fetchRepositoryReadme({ owner, repo });
 
     if (!readme) {
-      return item.description;
+      return { summary: item.description, readmeContent: null };
     }
 
-    return await generateSummary({
+    const normalizedReadme = normalizeReadmeMarkdown(readme);
+    if (normalizedReadme === '') {
+      return { summary: item.description, readmeContent: null };
+    }
+
+    const summary = await generateSummary({
       ai,
       name: item.name,
       description: item.description,
-      readme,
+      readme: normalizedReadme,
     });
+
+    return { summary, readmeContent: normalizedReadme };
   } catch (e) {
     logger.error({ repo: item.name, err: e }, 'Failed to fetch and summarize');
-    return item.description;
+    return { summary: item.description, readmeContent: null };
   }
 }
 
@@ -136,18 +144,23 @@ async function processLanguage({
             db: env.DB,
             item,
             summary: existing.summary,
+            readmeContent: existing.readme_content,
           });
           return { ...item, summary: existing.summary };
         }
 
         // 新規: README取得 → AI要約
-        const summary = await fetchAndSummarize({ item, ai: env.AI });
+        const { summary, readmeContent } = await fetchAndSummarize({
+          item,
+          ai: env.AI,
+        });
 
         // DB保存
         await saveOrUpdateRepository({
           db: env.DB,
           item,
           summary,
+          readmeContent,
         });
 
         return { ...item, summary };

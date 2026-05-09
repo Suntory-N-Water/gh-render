@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom';
-import type { TrendItem } from './types';
+import type { TrendItem } from '../types';
 
 /**
  * GitHubのトレンド情報を取得します。

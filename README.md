@@ -22,8 +22,20 @@ Cloudflare Workers 上で動作する、GitHub Trending の要約通知ボット
 # 依存関係のインストール
 bun install
 
-# データベースの初期化
-bun run wrangler d1 execute github-trending-db --local --file=./schema.sql
+# ローカルDBの初期化(テーブルがない場合は初期作成から実行)
+bun run db:init:local
+```
+
+### データベースマイグレーション
+
+既存データを保持したままスキーマを更新する場合は、D1 マイグレーションを適用します。
+
+```bash
+# ローカルDBへ適用
+bun run db:migrate:local
+
+# 本番DBへ適用
+bun run db:migrate:remote
 ```
 
 ### 環境変数

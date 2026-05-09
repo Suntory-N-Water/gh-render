@@ -1,5 +1,5 @@
 import { getLogger } from './logger';
-import type { NotificationAdapter, NotificationContent } from './types';
+import type { NotificationAdapter, NotificationContent } from '../types';
 
 const logger = getLogger('notification');
 

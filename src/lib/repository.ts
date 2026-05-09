@@ -1,4 +1,4 @@
-import type { Repository, TrendItem } from './types';
+import type { Repository, TrendItem } from '../types';
 
 /**
  * リポジトリ情報をデータベースに保存または更新します。
@@ -6,15 +6,18 @@ import type { Repository, TrendItem } from './types';
  * @param params.db D1データベース
  * @param params.item トレンドアイテム
  * @param params.summary AI要約(オプション)
+ * @param params.readmeContent README本文(オプション)
  */
 export async function saveOrUpdateRepository({
   db,
   item,
   summary,
+  readmeContent,
 }: {
   db: D1Database;
   item: TrendItem;
   summary?: string;
+  readmeContent?: string | null;
 }): Promise<void> {
   const existing = await getRepository({ db, url: item.url });
 
@@ -25,13 +28,24 @@ export async function saveOrUpdateRepository({
     await db
       .prepare(
         `UPDATE repositories SET
+          language = ?,
+          repository_description = ?,
+          readme_content = COALESCE(?, readme_content),
           last_updated_at = ?,
           previous_stars = ?,
           update_count = update_count + 1,
           summary = COALESCE(?, summary)
         WHERE url = ?`,
       )
-      .bind(now, item.stars, summary || null, item.url)
+      .bind(
+        item.language,
+        item.description,
+        readmeContent ?? null,
+        now,
+        item.stars,
+        summary || null,
+        item.url,
+      )
       .run();
   } else {
     // 新規作成
@@ -39,14 +53,26 @@ export async function saveOrUpdateRepository({
       .prepare(
         `INSERT INTO repositories (
           url,
+          language,
+          repository_description,
+          readme_content,
           summary,
           first_notified_at,
           last_updated_at,
           previous_stars,
           update_count
-        ) VALUES (?, ?, ?, ?, ?, 1)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       )
-      .bind(item.url, summary || null, now, now, item.stars)
+      .bind(
+        item.url,
+        item.language,
+        item.description,
+        readmeContent ?? null,
+        summary || null,
+        now,
+        now,
+        item.stars,
+      )
       .run();
   }
 }

@@ -6,6 +6,9 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev --test-scheduled",
     "start": "wrangler dev --test-scheduled",
+    "db:init:local": "wrangler d1 migrations apply github-trending-db --local",
+    "db:migrate:local": "wrangler d1 migrations apply github-trending-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply github-trending-db --remote",
     "cf-typegen": "wrangler types",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -14,16 +17,21 @@
     "lint:fix": "biome lint --write .",
     "lint:unsafe-fix": "biome lint --write --unsafe .",
     "type-check": "tsc --noEmit",
-    "type-check:ai": "tsc --noEmit --pretty false"
+    "type-check:ai": "tsc --noEmit --pretty false",
+    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
-    "bun-types": "^1.3.6",
-    "typed-query-selector": "^2.12.0",
+    "bun-types": "^1.3.13",
+    "typed-query-selector": "^2.12.2",
     "typescript": "^5.9.3",
-    "wrangler": "^4.60.0"
+    "wrangler": "^4.90.0"
   },
   "dependencies": {
-    "linkedom": "^0.18.12"
+    "linkedom": "^0.18.12",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5"
   }
 }

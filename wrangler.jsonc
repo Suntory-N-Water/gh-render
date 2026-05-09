@@ -21,7 +21,8 @@
     }
   ],
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
+    "remote": true
   },
   "vars": {
     // トレンド取得対象の言語設定(カンマ区切り)
