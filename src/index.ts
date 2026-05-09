@@ -64,7 +64,7 @@ export default {
 
     logger.info('Scheduled task completed');
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<CloudflareBindings>;
 
 /**
  * README取得と要約生成を行います
@@ -114,7 +114,7 @@ async function processLanguage({
 }: {
   targetLanguage: string;
   limit: number;
-  env: Env;
+  env: CloudflareBindings;
 }): Promise<{ label: string; items: (TrendItem & { summary: string })[] }> {
   const label = targetLanguage || 'all';
   logger.info({ lang: label, limit }, 'Processing language');
@@ -232,7 +232,7 @@ function createMockAdapter(): NotificationAdapter {
  * 環境変数から言語設定を読み込む
  */
 function loadLanguageConfig(
-  env: Env,
+  env: CloudflareBindings,
 ): Array<{ language: string; limit: number }> {
   const languages = env.LANGUAGES.split(',');
   const limits = env.LIMITS.split(',').map(Number);

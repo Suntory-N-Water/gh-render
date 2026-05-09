@@ -5,10 +5,6 @@
 /**
  * リポジトリのREADMEを取得します。
  * mainブランチから取得を試み、失敗した場合はmasterブランチを試します。
- * @param params パラメータオブジェクト
- * @param params.owner リポジトリオーナー
- * @param params.repo リポジトリ名
- * @returns READMEのテキストコンテンツ(取得できない場合はnull)
  */
 export async function fetchRepositoryReadme({
   owner,
