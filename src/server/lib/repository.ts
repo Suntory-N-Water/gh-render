@@ -1,124 +1,139 @@
-import type { Repository, TrendItem } from '../types';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { getTableColumns } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
+import * as schema from '../db/schema';
 
-/**
- * リポジトリ情報をデータベースに保存または更新します。
- */
-export async function saveOrUpdateRepository({
-  db,
-  item,
-  summary,
-  readmeContent,
-}: {
-  db: D1Database;
-  item: TrendItem;
-  summary?: string;
-  readmeContent?: string | null;
-}): Promise<void> {
-  const existing = await getRepository({ db, url: item.url });
-
-  const now = Date.now();
-
-  if (existing) {
-    // 更新
-    await db
-      .prepare(
-        `UPDATE repositories SET
-          language = ?,
-          repository_description = ?,
-          readme_content = COALESCE(?, readme_content),
-          last_updated_at = ?,
-          previous_stars = ?,
-          update_count = update_count + 1,
-          summary = COALESCE(?, summary)
-        WHERE url = ?`,
-      )
-      .bind(
-        item.language,
-        item.description,
-        readmeContent ?? null,
-        now,
-        item.stars,
-        summary || null,
-        item.url,
-      )
-      .run();
-  } else {
-    // 新規作成
-    await db
-      .prepare(
-        `INSERT INTO repositories (
-          url,
-          language,
-          repository_description,
-          readme_content,
-          summary,
-          first_notified_at,
-          last_updated_at,
-          previous_stars,
-          update_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      )
-      .bind(
-        item.url,
-        item.language,
-        item.description,
-        readmeContent ?? null,
-        summary || null,
-        now,
-        now,
-        item.stars,
-      )
-      .run();
-  }
-}
-
-/**
- * URLを指定してリポジトリ情報を取得します。
- * @param params パラメータオブジェクト
- * @param params.db D1データベース
- * @param params.url リポジトリURL
- * @returns リポジトリ情報(存在しない場合はnull)
- */
-async function getRepository({
-  db,
-  url,
-}: {
-  db: D1Database;
+type RepoInput = {
   url: string;
-}): Promise<Repository | null> {
-  return await db
-    .prepare('SELECT * FROM repositories WHERE url = ?')
-    .bind(url)
-    .first<Repository>();
+  description: string;
+  language: string;
+  stars: number;
+};
+
+type SummaryInput = {
+  summary?: string;
+  detailedSummary?: string;
+};
+
+export type RepositoryWithSummary = schema.Repository & {
+  summary: string | null;
+};
+
+export async function saveOrUpdateRepository(
+  d1: D1Database,
+  repo: RepoInput,
+  summaries?: SummaryInput,
+): Promise<void> {
+  const db = drizzle(d1, { schema });
+  const now = new Date();
+
+  await db
+    .insert(schema.repositories)
+    .values({
+      url: repo.url,
+      description: repo.description,
+      language: repo.language,
+      stars: repo.stars,
+      firstNotifiedAt: now,
+      lastUpdatedAt: now,
+      updateCount: 1,
+    })
+    .onConflictDoUpdate({
+      target: schema.repositories.url,
+      set: {
+        description: repo.description,
+        language: repo.language,
+        stars: repo.stars,
+        lastUpdatedAt: now,
+        updateCount: sql`${schema.repositories.updateCount} + 1`,
+      },
+    });
+
+  const saved = await db.query.repositories.findFirst({
+    where: eq(schema.repositories.url, repo.url),
+    columns: { id: true },
+  });
+  if (!saved) {
+    return;
+  }
+
+  if (summaries?.summary) {
+    await db
+      .insert(schema.repositorySummaries)
+      .values({ repositoryId: saved.id, summary: summaries.summary })
+      .onConflictDoUpdate({
+        target: schema.repositorySummaries.repositoryId,
+        set: { summary: summaries.summary, updatedAt: now },
+      });
+  }
+
+  if (summaries?.detailedSummary) {
+    await db
+      .insert(schema.repositoryDetailedSummaries)
+      .values({
+        repositoryId: saved.id,
+        detailedSummary: summaries.detailedSummary,
+      })
+      .onConflictDoUpdate({
+        target: schema.repositoryDetailedSummaries.repositoryId,
+        set: { detailedSummary: summaries.detailedSummary, updatedAt: now },
+      });
+  }
+
+  // FTS5 同期: 現在の要約を取得してからエントリを差し替える
+  const [ftsData] = await db
+    .select({
+      summary: schema.repositorySummaries.summary,
+      detailedSummary: schema.repositoryDetailedSummaries.detailedSummary,
+    })
+    .from(schema.repositories)
+    .leftJoin(
+      schema.repositorySummaries,
+      eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
+    )
+    .leftJoin(
+      schema.repositoryDetailedSummaries,
+      eq(
+        schema.repositories.id,
+        schema.repositoryDetailedSummaries.repositoryId,
+      ),
+    )
+    .where(eq(schema.repositories.id, saved.id));
+
+  // FTS5 は rowid で識別するため、既存エントリを削除してから再挿入する
+  await db.run(sql`DELETE FROM repositories_fts WHERE rowid = ${saved.id}`);
+  await db.run(
+    sql`INSERT INTO repositories_fts(rowid, url, description, summary, detailed_summary)
+        VALUES (${saved.id}, ${repo.url}, ${repo.description}, ${ftsData?.summary ?? ''}, ${ftsData?.detailedSummary ?? ''})`,
+  );
 }
 
-/**
- * 複数のURLを指定してリポジトリ情報を一括取得します。
- */
-export async function getRepositories({
-  db,
-  urls,
-}: {
-  db: D1Database;
-  urls: string[];
-}): Promise<Map<string, Repository>> {
+export async function getRepositories(
+  d1: D1Database,
+  urls: string[],
+): Promise<Map<string, RepositoryWithSummary>> {
   if (urls.length === 0) {
     return new Map();
   }
 
-  // D1は `IN (?)` のバインドを配列展開してくれないため、プレースホルダーを動的に生成
-  const placeholders = urls.map(() => '?').join(',');
-  const query = `SELECT * FROM repositories WHERE url IN (${placeholders})`;
+  const db = drizzle(d1, { schema });
+  const repoColumns = getTableColumns(schema.repositories);
 
-  const { results } = await db
-    .prepare(query)
-    .bind(...urls)
-    .all<Repository>();
+  const rows = await db
+    .select({
+      ...repoColumns,
+      summary: schema.repositorySummaries.summary,
+    })
+    .from(schema.repositories)
+    .leftJoin(
+      schema.repositorySummaries,
+      eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
+    )
+    .where(inArray(schema.repositories.url, urls));
 
-  const map = new Map<string, Repository>();
-  for (const repo of results) {
-    map.set(repo.url, repo);
+  const map = new Map<string, RepositoryWithSummary>();
+  for (const row of rows) {
+    map.set(row.url, row);
   }
-
   return map;
 }

@@ -107,6 +107,18 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConsistentTypeDefinitions": "off"
+          }
+        }
+      }
+    }
+  ],
   "html": {
     "experimentalFullSupportEnabled": true,
     "formatter": {

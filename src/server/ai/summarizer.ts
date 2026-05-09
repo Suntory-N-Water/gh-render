@@ -105,7 +105,7 @@ export async function generateSummary({
       },
       'AI summary generation failed',
     );
-    // 失敗時はシステムを止めず、元の説明文を返す(フォールバック)
+    // 失敗時はシステムを止めず、元の説明文を返す
     return description;
   }
 }

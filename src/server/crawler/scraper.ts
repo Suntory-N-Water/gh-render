@@ -65,14 +65,3 @@ export async function fetchTrendingRepositories(
 
   return repos;
 }
-
-if (import.meta.main) {
-  const target = Bun.argv[2];
-  console.log(`Getting trending for: ${target || 'all'}`);
-  fetchTrendingRepositories(target)
-    .then((repos) => {
-      console.log(`Found ${repos.length} repositories`);
-      console.log(JSON.stringify(repos.slice(0, 3), null, 2));
-    })
-    .catch(console.error);
-}

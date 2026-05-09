@@ -159,43 +159,39 @@ WHERE repositories_fts MATCH 'rust async';
 | ファイル | 内容 |
 |--|--|
 | `src/server/db/schema.ts` | 新スキーマ(`repositories` / `repository_summaries` / `repository_detailed_summaries` / `repository_readmes`)の Drizzle 定義済み |
-| `drizzle/migrations/` | 旧スキーマ(`url` PK)から新スキーマ(`id` PK)への移行スクリプト済み |
+| `drizzle/migrations/0000_peaceful_polaris.sql` | 旧スキーマ(`url` PK)から新スキーマ(`id` PK)への移行スクリプト済み |
+| `drizzle/migrations/0001_repositories_fts.sql` | FTS5 仮想テーブル(`repositories_fts`)の作成マイグレーション済み |
 | `src/server/ai/summarizer.ts` | 短め要約の生成ロジック実装済み(Workers AI 呼び出し・フォールバック処理あり) |
 | `src/server/crawler/scraper.ts` | GitHub Trending スクレイピング実装済み |
 | `src/server/crawler/github.ts` | README 取得(main / master ブランチ fallback)実装済み |
 | `src/server/lib/readme-normalizer.ts` | README の Markdown 正規化処理実装済み |
-
-### 未動作(スキーマ乖離)
-
-新スキーマへの移行後、以下のファイルが旧スキーマのまま放置されており動作しない。
-
-| ファイル | 問題 |
-|--|--|
-| `src/server/types.ts` | `Repository` 型が旧カラム名(`repository_description`・`readme_content`・`previous_stars`・`summary`)を持つ。`db/schema.ts` が型をエクスポートしているため不要 |
-| `src/server/lib/repository.ts` | 旧カラム名を直接 SQL で参照。新テーブル(`repository_summaries` 等)への読み書き未対応。Drizzle ORM 未使用 |
-| `src/server/index.ts` | `saveOrUpdateRepository` を呼び出しているため上記の問題を引き継ぐ。`starsToday` をスクレイピングしているが DB に保存していない |
+| `src/server/lib/repository.ts` | Drizzle ORM で全面書き直し済み。`saveOrUpdateRepository` / `getRepositories` を実装。FTS5 同期処理(`db.run(sql\`...\`)`)を含む |
+| `src/server/router/index.ts` | Hono API ルート。`basePath('/api')` で `/api/repositories`(一覧・ページネーション・言語フィルタ) / `/api/repositories/search`(FTS5 全文検索)を実装 |
+| `src/server/schedule/index.ts` | Cron ハンドラ。Discord 通知を削除済み。新スキーマ対応の `saveOrUpdateRepository` を使用 |
+| `src/server/index.ts` | 統合エンドポイント。`fetch`(Hono) + `scheduled`(Cron)を export。`AppType` をここで export |
+| `test/repository.test.ts` | `saveOrUpdateRepository` / `getRepositories` の統合テスト(13件) |
+| `test/fts.test.ts` | FTS5 同期の統合テスト(5件) |
+| `test/api.test.ts` | Hono API ルートの統合テスト(8件) |
+| `wrangler.jsonc` | `LANGUAGES` の末尾カンマにより空文字列が生まれ、暗黙的に「全言語」扱いになっている(`"typescript,rust,python,"` → `["typescript","rust","python",""]` の 4 要素。空文字列は GitHub Trending の言語フィルタなしに対応) が、明示的に`all`を指定するようにする|
+| `wrangler.test.jsonc` | テスト専用 wrangler 設定(AI リモート接続なし・`test/worker.ts` を main に使用) |
 
 ### 未実装
 
 | 対象 | 備考 |
 |--|--|
 | 詳細要約生成(2段階目) | `summarizer.ts` は短め要約のみ。`repository_detailed_summaries` への書き込みなし |
-| FTS5 テーブル | マイグレーション未作成・Cron への同期処理なし |
-| Hono API ルート | `src/server/index.ts` に `scheduled` ハンドラのみ。HTTP ルートなし |
 | React フロントエンド | `src/client/App.tsx` がデフォルトテンプレートのまま |
-| Discord 通知の削除 | `src/server/lib/notification.ts`・`types.ts` の `NotificationAdapter`/`NotificationContent` が残存 |
+| `src/server/types.ts` の削除 | 旧 `Repository` 型・`NotificationAdapter` / `NotificationContent` が残存。`db/schema.ts` が型をエクスポートしているため不要 |
+| `src/server/lib/notification.ts` の削除 | Discord Webhook アダプタが残存 |
+| `repository_readmes` テーブルの削除 | 移行完了後に削除。README 本文は今後保存しない |
 
 ---
 
-## 実装の進め方
+## 今後やること
 
-1. pnpm モノレポへ移行
-2. Hono で API ルート(リポジトリ一覧・検索)を追加
-3. React + Vite でフロントエンドを構築
-4. `repositories_fts` FTS5 仮想テーブルをマイグレーションで追加し、Cron の書き込み処理に同期ロジックを組み込む
-5. AI 要約プロンプト改善(詳細要約の構造化フォーマット対応)
-6. Discord 通知コードの削除
-7. `repository_readmes` テーブルの削除
+1. **React フロントエンド構築** — `src/client/App.tsx` を実装。`hc<AppType>` で型安全な API 呼び出し。無限スクロール・言語フィルタ・全文検索・ソート切り替えを実装
+2. **詳細要約生成** — `summarizer.ts` に詳細要約(2段階目)を追加し、`repository_detailed_summaries` への書き込みを Cron フローに組み込む
+3. **不要コードの削除** — `src/server/types.ts`・`src/server/lib/notification.ts`・`repository_readmes` テーブルを削除
 
 ---
 
