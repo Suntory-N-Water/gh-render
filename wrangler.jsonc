@@ -6,7 +6,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "github-trending-notifier",
   "main": "src/index.ts",
-  "compatibility_date": "2026-01-21",
+  "compatibility_date": "2026-05-08",
   "observability": {
     "enabled": true
   },
@@ -17,7 +17,8 @@
     {
       "binding": "DB",
       "database_name": "github-trending-db",
-      "database_id": "473ec689-d747-493d-912f-53fadda11900"
+      "database_id": "473ec689-d747-493d-912f-53fadda11900",
+      "migrations_dir": "drizzle/migrations/"
     }
   ],
   "ai": {
