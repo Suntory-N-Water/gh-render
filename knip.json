@@ -2,6 +2,10 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignoreExportsUsedInFile": true,
   "entry": ["test/worker.ts"],
-  "ignore": ["src/client/vite-env.d.ts", "worker-configuration.d.ts"],
+  "ignore": [
+    "src/client/vite-env.d.ts",
+    "worker-configuration.d.ts",
+    "src/client/components/ui/**"
+  ],
   "ignoreDependencies": ["cloudflare"]
 }
