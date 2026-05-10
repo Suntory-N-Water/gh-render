@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "github-trending-notifier",
+      "name": "gh-render",
       "dependencies": {
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
         "class-variance-authority": "^0.7.1",

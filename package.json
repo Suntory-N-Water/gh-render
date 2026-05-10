@@ -1,5 +1,5 @@
 {
-  "name": "github-trending-notifier",
+  "name": "gh-render",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -23,7 +23,8 @@
     "type-check:ai": "tsc -b 2>&1",
     "test": "AGENT=1 vitest run",
     "test:coverage": "AGENT=1 vitest run --coverage",
-    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai"
+    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai",
+    "knip": "knip"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

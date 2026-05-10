@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "github-trending-notifier",
+  "name": "gh-render",
   "main": "test/worker.ts",
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
