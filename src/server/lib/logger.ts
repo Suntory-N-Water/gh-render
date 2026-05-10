@@ -1,4 +1,4 @@
-const loggerName = 'github-trending-notifier';
+const loggerName = 'gh-render';
 
 /**
  * Log function that accepts either a message or an object with optional message

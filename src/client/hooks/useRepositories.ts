@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useTransition,
 } from 'react';
@@ -25,7 +24,11 @@ type Params = {
   q: string;
 };
 
-const INITIAL_LIMIT = 100;
+const PAGE_SIZE = 20;
+
+// remount で再フェッチしないためのモジュールレベルキャッシュ
+let poolCache: Repository[] = [];
+let didFetch = false;
 
 function applyLangFilter(repos: Repository[], lang: string): Repository[] {
   if (!lang || lang === 'all') {
@@ -45,21 +48,30 @@ function applySort(repos: Repository[], sort: SortKey): Repository[] {
 }
 
 export function useRepositories({ lang, sort, q }: Params) {
-  const [pool, setPool] = useState<Repository[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasNext, setHasNext] = useState(false);
-  const offsetRef = useRef(0);
+  const [pool, setPool] = useState<Repository[]>(poolCache);
+  const [isLoading, setIsLoading] = useState(!didFetch);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+
+  // フィルタ変化時に displayCount を render 中にリセット
+  const [prevLang, setPrevLang] = useState(lang);
+  const [prevSort, setPrevSort] = useState(sort);
+  const [prevQ, setPrevQ] = useState(q);
+
+  if (prevLang !== lang || prevSort !== sort || prevQ !== q) {
+    setPrevLang(lang);
+    setPrevSort(sort);
+    setPrevQ(q);
+    setDisplayCount(PAGE_SIZE);
+  }
 
   const [searchResults, setSearchResults] = useState<Repository[]>([]);
   const [isSearchPending, startSearchTransition] = useTransition();
 
-  // ブラウズモード: pool に lang フィルタ + ソートを適用
   const filteredRepositories = useMemo(
     () => applySort(applyLangFilter(pool, lang), sort),
     [pool, lang, sort],
   );
 
-  // 検索モード: 検索結果にも lang フィルタ + ソートを適用
   const filteredSearchResults = useMemo(
     () => applySort(applyLangFilter(searchResults, lang), sort),
     [searchResults, lang, sort],
@@ -70,26 +82,19 @@ export function useRepositories({ lang, sort, q }: Params) {
     [pool],
   );
 
-  const fetchMore = useCallback(async (offset: number) => {
-    setIsLoading(true);
-    try {
-      const res = await client.api.repositories.$get({
-        query: { offset: String(offset), limit: String(INITIAL_LIMIT) },
-      });
-      const data: ListResponse = await res.json();
-      setPool((prev) =>
-        offset === 0 ? data.repositories : [...prev, ...data.repositories],
-      );
-      setHasNext(data.hasNext);
-      offsetRef.current = offset + data.repositories.length;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void fetchMore(0);
-  }, [fetchMore]);
+    if (didFetch) {
+      return;
+    }
+    didFetch = true;
+    setIsLoading(true);
+    void client.api.repositories.$get().then(async (res) => {
+      const data: ListResponse = await res.json();
+      poolCache = data.repositories;
+      setPool(data.repositories);
+      setIsLoading(false);
+    });
+  }, []);
 
   useEffect(() => {
     if (!q) {
@@ -103,18 +108,19 @@ export function useRepositories({ lang, sort, q }: Params) {
   }, [q]);
 
   const loadMore = useCallback(() => {
-    if (isLoading || !hasNext) {
-      return;
-    }
-    void fetchMore(offsetRef.current);
-  }, [isLoading, hasNext, fetchMore]);
+    setDisplayCount((prev) => prev + PAGE_SIZE);
+  }, []);
 
-  const repositories = q ? filteredSearchResults : filteredRepositories;
+  const repositories = q
+    ? filteredSearchResults
+    : filteredRepositories.slice(0, displayCount);
+
+  const hasNext = q ? false : displayCount < filteredRepositories.length;
 
   return {
     repositories,
     isLoading: isLoading || (q ? isSearchPending : false),
-    hasNext: q ? false : hasNext,
+    hasNext,
     loadMore,
     languages,
   };
