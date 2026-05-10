@@ -173,3 +173,4 @@ cloudflare-testing
 
 temp/*
 !temp/.gitkeep
+__pycache__
