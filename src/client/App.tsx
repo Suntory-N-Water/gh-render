@@ -1,50 +1,48 @@
-// src/App.tsx
+import { useCallback, useState } from 'react';
+import { Header } from '@/client/components/header/Header';
+import { FilterBar } from '@/client/components/filter/FilterBar';
+import { RepositoryList } from '@/client/components/repository/RepositoryList';
+import { useRepositories } from '@/client/hooks/useRepositories';
+import { useDebounce } from '@/client/hooks/useDebounce';
 
-import viteLogo from '/vite.svg';
-import cloudflareLogo from './assets/Cloudflare_Logo.svg';
-import honoLogo from './assets/hono.svg';
-import reactLogo from './assets/react.svg';
-import './App.css';
+type SortKey = 'lastUpdatedAt' | 'stars' | 'updateCount';
 
-function App() {
+export default function App() {
+  const [lang, setLang] = useState('all');
+  const [sort, setSort] = useState<SortKey>('lastUpdatedAt');
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
+
+  const { repositories, isLoading, hasNext, loadMore, languages } =
+    useRepositories({ lang, sort, q: debouncedQuery });
+
+  const handleReset = useCallback(() => {
+    setQuery('');
+    setLang('all');
+    setSort('lastUpdatedAt');
+  }, []);
+
   return (
-    <>
-      <div>
-        <a href='https://vite.dev' target='_blank' rel='noopener'>
-          <img src={viteLogo} className='logo' alt='Vite logo' />
-        </a>
-        <a href='https://react.dev' target='_blank' rel='noopener'>
-          <img src={reactLogo} className='logo react' alt='React logo' />
-        </a>
-        <a href='https://hono.dev/' target='_blank' rel='noopener'>
-          <img src={honoLogo} className='logo cloudflare' alt='Hono logo' />
-        </a>
-        <a
-          href='https://workers.cloudflare.com/'
-          target='_blank'
-          rel='noopener'
-        >
-          <img
-            src={cloudflareLogo}
-            className='logo cloudflare'
-            alt='Cloudflare logo'
-          />
-        </a>
-      </div>
-      <h1>Vite + React + Hono + Cloudflare</h1>
-      <div className='card'>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <div className='card'>
-        <p>
-          Edit <code>worker/index.ts</code> to change the name
-        </p>
-      </div>
-      <p className='read-the-docs'>Click on the logos to learn more</p>
-    </>
+    <div className='min-h-dvh bg-background'>
+      <Header query={query} onQueryChange={setQuery} onReset={handleReset} />
+
+      <main className='mx-auto max-w-5xl px-4 py-6 space-y-4'>
+        <FilterBar
+          lang={lang}
+          sort={sort}
+          languages={languages}
+          onLangChange={setLang}
+          onSortChange={setSort}
+        />
+
+        <RepositoryList
+          repositories={repositories}
+          isLoading={isLoading}
+          hasNext={hasNext}
+          query={debouncedQuery}
+          onLoadMore={loadMore}
+        />
+      </main>
+    </div>
   );
 }
-
-export default App;
