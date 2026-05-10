@@ -107,6 +107,25 @@ export async function generateSummary({
   }
 }
 
+type DetailedSummaryJson = {
+  overview: string[];
+  features: string[];
+  technical: string[];
+};
+
+function formatDetailedSummary(data: DetailedSummaryJson): string {
+  return [
+    '### 概要',
+    ...data.overview.map((s) => `- ${s}`),
+    '',
+    '### 主な機能・特徴',
+    ...data.features.map((f) => `- ${f}`),
+    '',
+    '### 技術的な注目点',
+    ...data.technical.map((t) => `- ${t}`),
+  ].join('\n');
+}
+
 /**
  * Cloudflare Workers AIを使用してリポジトリの詳細要約を生成します。
  */
@@ -122,7 +141,6 @@ export async function generateDetailedSummary({
   readme: string;
 }): Promise<string | null> {
   try {
-    // 詳細要約はより多くのコンテキストを使う
     const truncatedReadme = readme.slice(0, 8000);
 
     const prompt = [
@@ -138,7 +156,7 @@ export async function generateDetailedSummary({
       '- 読者はエンジニアであり、技術的な深さと採用判断に必要な具体性を求めている',
       '',
       '## 目的 (Purpose)',
-      '- リポジトリの概要・主な機能・技術的注目点を網羅的に伝える詳細要約を生成する',
+      '- リポジトリの概要・主な機能・技術的注目点を3つのフィールドに分けて抽出する',
       '- 読者が「このリポジトリを使うか・学ぶか」を判断できる情報を提供する',
       '',
       '## 動機 (Motive)',
@@ -146,15 +164,15 @@ export async function generateDetailedSummary({
       '- 実際にリポジトリを調べるコストを削減し、必要な情報だけを効率的に届ける',
       '',
       '## 制約 (Constraint)',
-      '- 日本語で400文字以内',
-      '- 以下の構成で書く:',
-      '  1. 概要: プロジェクトの目的・解決する課題(1〜2文)',
-      '  2. 主な機能・特徴: 箇条書き3〜5点',
-      '  3. 技術的な注目点: 実装上の工夫や特徴的な設計(1〜2文)',
-      '- 詳細要約のみを出力する',
+      '- 日本語のみで記述する',
+      '- 各フィールドの各項目は1文で簡潔に記述する',
+      '- プレーンテキストのみ使用する(**太字**・[リンク]・`コード`等のMarkdown装飾を使用しない)',
+      '- overview: プロジェクトの目的・解決する課題を1〜2項目の配列で出力する',
+      '- features: 主な機能・特徴を3〜5項目の配列で出力する',
+      '- technical: 実装上の工夫や特徴的な設計を1〜2項目の配列で出力する',
       '',
       '## 実行指示',
-      '以下のリポジトリ情報に基づき、上記の思考レンズに従って詳細要約を作成してください。',
+      '以下のリポジトリ情報に基づき、上記の思考レンズに従って詳細要約をJSONで出力してください。',
       '',
       '### リポジトリ情報',
       `- Name: ${name}`,
@@ -162,8 +180,6 @@ export async function generateDetailedSummary({
       '',
       '### README (抜粋)',
       truncatedReadme,
-      '',
-      '詳細要約のみを出力してください。',
     ].join('\n');
 
     const result = await ai.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
@@ -171,20 +187,46 @@ export async function generateDetailedSummary({
         {
           role: 'system',
           content:
-            '指示された詳細要約のみを出力せよ。前置き・確認・解説・挨拶は一切出力しない。',
+            '指示されたJSONのみを出力せよ。前置き・確認・解説・挨拶は一切出力しない。',
         },
         { role: 'user', content: prompt },
       ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          type: 'object',
+          properties: {
+            overview: { type: 'array', items: { type: 'string' } },
+            features: { type: 'array', items: { type: 'string' } },
+            technical: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['overview', 'features', 'technical'],
+        },
+      },
     });
 
-    const detailedSummary = result.response;
+    const raw = result.response;
 
-    if (!detailedSummary) {
+    if (!raw) {
       logger.warn({ repo: name }, 'AI returned empty detailed summary');
       return null;
     }
 
-    return detailedSummary.trim();
+    // response_format: json_schema 使用時はパース済みオブジェクトが返る場合がある
+    const parsed: DetailedSummaryJson = JSON.parse(
+      typeof raw === 'string' ? raw : JSON.stringify(raw),
+    );
+
+    if (
+      !Array.isArray(parsed.overview) ||
+      !Array.isArray(parsed.features) ||
+      !Array.isArray(parsed.technical)
+    ) {
+      logger.warn({ repo: name, parsed }, 'AI returned unexpected JSON shape');
+      return null;
+    }
+
+    return formatDetailedSummary(parsed);
   } catch (error) {
     const err =
       error instanceof Error

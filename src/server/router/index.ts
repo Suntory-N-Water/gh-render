@@ -1,4 +1,4 @@
-import { type SQL, and, desc, eq, getTableColumns, lt, sql } from 'drizzle-orm';
+import { type SQL, and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import * as schema from '../db/schema';
@@ -6,25 +6,28 @@ import * as schema from '../db/schema';
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
+const SORT_COLUMNS = {
+  lastUpdatedAt: schema.repositories.lastUpdatedAt,
+  stars: schema.repositories.stars,
+  updateCount: schema.repositories.updateCount,
+} as const;
+
+type SortKey = keyof typeof SORT_COLUMNS;
+
 const router = new Hono<{ Bindings: CloudflareBindings }>()
   .basePath('/api')
   .get('/repositories', async (c) => {
-    const { cursor, limit, language } = c.req.query();
+    const { offset, limit, language, sort } = c.req.query();
 
-    if (cursor !== undefined && Number.isNaN(Number(cursor))) {
-      return c.json({ error: 'Invalid cursor' }, 400);
-    }
-
+    const offsetNum = Number(offset) || 0;
     const limitNum = Math.min(Number(limit) || DEFAULT_LIMIT, MAX_LIMIT);
+    const sortKey: SortKey =
+      sort in SORT_COLUMNS ? (sort as SortKey) : 'lastUpdatedAt';
+
     const db = drizzle(c.env.DB, { schema });
     const repoColumns = getTableColumns(schema.repositories);
 
     const conditions: SQL[] = [];
-    if (cursor) {
-      conditions.push(
-        lt(schema.repositories.lastUpdatedAt, new Date(Number(cursor))),
-      );
-    }
     if (language) {
       conditions.push(eq(schema.repositories.language, language));
     }
@@ -33,23 +36,29 @@ const router = new Hono<{ Bindings: CloudflareBindings }>()
       .select({
         ...repoColumns,
         summary: schema.repositorySummaries.summary,
+        detailedSummary: schema.repositoryDetailedSummaries.detailedSummary,
       })
       .from(schema.repositories)
       .leftJoin(
         schema.repositorySummaries,
         eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
       )
+      .leftJoin(
+        schema.repositoryDetailedSummaries,
+        eq(
+          schema.repositories.id,
+          schema.repositoryDetailedSummaries.repositoryId,
+        ),
+      )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(schema.repositories.lastUpdatedAt))
-      .limit(limitNum + 1);
+      .orderBy(desc(SORT_COLUMNS[sortKey]))
+      .limit(limitNum + 1)
+      .offset(offsetNum);
 
     const hasNext = rows.length > limitNum;
     const repositories = hasNext ? rows.slice(0, limitNum) : rows;
-    const nextCursor = hasNext
-      ? repositories[repositories.length - 1].lastUpdatedAt.getTime()
-      : undefined;
 
-    return c.json({ repositories, nextCursor });
+    return c.json({ repositories, hasNext });
   })
   .get('/repositories/search', async (c) => {
     const { q } = c.req.query();
@@ -65,11 +74,19 @@ const router = new Hono<{ Bindings: CloudflareBindings }>()
       .select({
         ...repoColumns,
         summary: schema.repositorySummaries.summary,
+        detailedSummary: schema.repositoryDetailedSummaries.detailedSummary,
       })
       .from(schema.repositories)
       .leftJoin(
         schema.repositorySummaries,
         eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
+      )
+      .leftJoin(
+        schema.repositoryDetailedSummaries,
+        eq(
+          schema.repositories.id,
+          schema.repositoryDetailedSummaries.repositoryId,
+        ),
       )
       .where(
         sql`${schema.repositories.id} IN (
