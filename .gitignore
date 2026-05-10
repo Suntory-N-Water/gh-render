@@ -165,3 +165,12 @@ dist
 .env*
 !.env.example
 .wrangler/
+
+.claude/plans/*.md
+
+build/
+cloudflare-testing
+
+temp/*
+!temp/.gitkeep
+__pycache__

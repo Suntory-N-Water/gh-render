@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gh-render",
+  "main": "test/worker.ts",
+  "compatibility_date": "2026-05-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "github-trending-db",
+      "database_id": "473ec689-d747-493d-912f-53fadda11900",
+      "migrations_dir": "drizzle/migrations/"
+    }
+  ],
+  "vars": {
+    "LANGUAGES": "typescript,rust,python,all",
+    "LIMITS": "5,3,3,5"
+  }
+}
