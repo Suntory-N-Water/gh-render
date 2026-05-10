@@ -13,7 +13,7 @@
     }
   ],
   "vars": {
-    "LANGUAGES": "typescript,rust,python,",
+    "LANGUAGES": "typescript,rust,python,all",
     "LIMITS": "5,3,3,5"
   }
 }

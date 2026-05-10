@@ -161,28 +161,26 @@ WHERE repositories_fts MATCH 'rust async';
 | `src/server/db/schema.ts` | 新スキーマ(`repositories` / `repository_summaries` / `repository_detailed_summaries` / `repository_readmes`)の Drizzle 定義済み |
 | `drizzle/migrations/0000_peaceful_polaris.sql` | 旧スキーマ(`url` PK)から新スキーマ(`id` PK)への移行スクリプト済み |
 | `drizzle/migrations/0001_repositories_fts.sql` | FTS5 仮想テーブル(`repositories_fts`)の作成マイグレーション済み |
-| `src/server/ai/summarizer.ts` | 短め要約の生成ロジック実装済み(Workers AI 呼び出し・フォールバック処理あり) |
-| `src/server/crawler/scraper.ts` | GitHub Trending スクレイピング実装済み |
+| `src/server/ai/summarizer.ts` | 短め要約(`generateSummary`)・詳細要約(`generateDetailedSummary`)の生成ロジック実装済み(Workers AI 呼び出し・フォールバック処理あり) |
+| `src/server/crawler/scraper.ts` | GitHub Trending スクレイピング実装済み。`TrendItem` 型をここで定義・export |
 | `src/server/crawler/github.ts` | README 取得(main / master ブランチ fallback)実装済み |
 | `src/server/lib/readme-normalizer.ts` | README の Markdown 正規化処理実装済み |
-| `src/server/lib/repository.ts` | Drizzle ORM で全面書き直し済み。`saveOrUpdateRepository` / `getRepositories` を実装。FTS5 同期処理(`db.run(sql\`...\`)`)を含む |
+| `src/server/lib/repository.ts` | Drizzle ORM で全面書き直し済み。`saveOrUpdateRepository` / `getRepositories` を実装。`getRepositories` は `detailedSummary` も JOIN して返す。FTS5 同期処理(`db.run(sql\`...\`)`)を含む |
 | `src/server/router/index.ts` | Hono API ルート。`basePath('/api')` で `/api/repositories`(一覧・ページネーション・言語フィルタ) / `/api/repositories/search`(FTS5 全文検索)を実装 |
-| `src/server/schedule/index.ts` | Cron ハンドラ。Discord 通知を削除済み。新スキーマ対応の `saveOrUpdateRepository` を使用 |
+| `src/server/schedule/index.ts` | Cron ハンドラ。Discord 通知を削除済み。短め要約・詳細要約を `Promise.all` で並列生成し `saveOrUpdateRepository` へ渡す。両方揃っている場合のみキャッシュ再利用 |
 | `src/server/index.ts` | 統合エンドポイント。`fetch`(Hono) + `scheduled`(Cron)を export。`AppType` をここで export |
 | `test/repository.test.ts` | `saveOrUpdateRepository` / `getRepositories` の統合テスト(13件) |
 | `test/fts.test.ts` | FTS5 同期の統合テスト(5件) |
 | `test/api.test.ts` | Hono API ルートの統合テスト(8件) |
-| `wrangler.jsonc` | `LANGUAGES` の末尾カンマにより空文字列が生まれ、暗黙的に「全言語」扱いになっている(`"typescript,rust,python,"` → `["typescript","rust","python",""]` の 4 要素。空文字列は GitHub Trending の言語フィルタなしに対応) が、明示的に`all`を指定するようにする|
+| `wrangler.jsonc` | `LANGUAGES` を `"typescript,rust,python,all"` に修正。`"all"` が全言語(言語フィルタなし)を表すと明示 |
 | `wrangler.test.jsonc` | テスト専用 wrangler 設定(AI リモート接続なし・`test/worker.ts` を main に使用) |
+| `knip.json` | 未使用コード検出設定。`test/worker.ts` をエントリに追加、自動生成 `.d.ts` を ignore、Cloudflare 仮想モジュールを `ignoreDependencies` に追加 |
 
 ### 未実装
 
 | 対象 | 備考 |
 |--|--|
-| 詳細要約生成(2段階目) | `summarizer.ts` は短め要約のみ。`repository_detailed_summaries` への書き込みなし |
 | React フロントエンド | `src/client/App.tsx` がデフォルトテンプレートのまま |
-| `src/server/types.ts` の削除 | 旧 `Repository` 型・`NotificationAdapter` / `NotificationContent` が残存。`db/schema.ts` が型をエクスポートしているため不要 |
-| `src/server/lib/notification.ts` の削除 | Discord Webhook アダプタが残存 |
 | `repository_readmes` テーブルの削除 | 移行完了後に削除。README 本文は今後保存しない |
 
 ---
@@ -190,10 +188,6 @@ WHERE repositories_fts MATCH 'rust async';
 ## 今後やること
 
 1. **React フロントエンド構築** — `src/client/App.tsx` を実装。`hc<AppType>` で型安全な API 呼び出し。無限スクロール・言語フィルタ・全文検索・ソート切り替えを実装
-2. **詳細要約生成** — `summarizer.ts` に詳細要約(2段階目)を追加し、`repository_detailed_summaries` への書き込みを Cron フローに組み込む
-3. **不要コードの削除** — `src/server/types.ts`・`src/server/lib/notification.ts`・`repository_readmes` テーブルを削除
-
----
 
 ## UI/UX 構成案
 

@@ -1,10 +1,10 @@
-import { generateSummary } from '../ai/summarizer';
+import { generateDetailedSummary, generateSummary } from '../ai/summarizer';
 import { fetchRepositoryReadme } from '../crawler/github';
 import { fetchTrendingRepositories } from '../crawler/scraper';
+import type { TrendItem } from '../crawler/scraper';
 import { getLogger } from '../lib/logger';
 import { normalizeReadmeMarkdown } from '../lib/readme-normalizer';
 import { getRepositories, saveOrUpdateRepository } from '../lib/repository';
-import type { TrendItem } from '../types';
 
 const logger = getLogger('scheduler');
 
@@ -40,7 +40,7 @@ export default {
 } satisfies ExportedHandler<CloudflareBindings>;
 
 /**
- * README取得と要約生成を行います
+ * README取得と要約生成(短め・詳細)を行います
  * エラー時は説明文にフォールバック
  */
 async function fetchAndSummarize({
@@ -49,31 +49,39 @@ async function fetchAndSummarize({
 }: {
   item: TrendItem;
   ai: Ai;
-}): Promise<{ summary: string; readmeContent: string | null }> {
+}): Promise<{ summary: string; detailedSummary: string | null }> {
   try {
     const [owner, repo] = item.name.split('/');
     const readme = await fetchRepositoryReadme({ owner, repo });
 
     if (!readme) {
-      return { summary: item.description, readmeContent: null };
+      return { summary: item.description, detailedSummary: null };
     }
 
     const normalizedReadme = normalizeReadmeMarkdown(readme);
     if (normalizedReadme === '') {
-      return { summary: item.description, readmeContent: null };
+      return { summary: item.description, detailedSummary: null };
     }
 
-    const summary = await generateSummary({
-      ai,
-      name: item.name,
-      description: item.description,
-      readme: normalizedReadme,
-    });
+    const [summary, detailedSummary] = await Promise.all([
+      generateSummary({
+        ai,
+        name: item.name,
+        description: item.description,
+        readme: normalizedReadme,
+      }),
+      generateDetailedSummary({
+        ai,
+        name: item.name,
+        description: item.description,
+        readme: normalizedReadme,
+      }),
+    ]);
 
-    return { summary, readmeContent: normalizedReadme };
+    return { summary, detailedSummary };
   } catch (e) {
     logger.error({ repo: item.name, err: e }, 'Failed to fetch and summarize');
-    return { summary: item.description, readmeContent: null };
+    return { summary: item.description, detailedSummary: null };
   }
 }
 
@@ -89,7 +97,7 @@ async function processLanguage({
   limit: number;
   env: CloudflareBindings;
 }): Promise<{ label: string; items: (TrendItem & { summary: string })[] }> {
-  const label = targetLanguage || 'all';
+  const label = targetLanguage;
   logger.info({ lang: label, limit }, 'Processing language');
 
   try {
@@ -116,23 +124,27 @@ async function processLanguage({
           stars: item.stars,
         };
 
-        // キャッシュがあれば再利用
-        if (existing?.summary) {
+        // キャッシュがあれば再利用(短め・詳細ともに揃っている場合のみ)
+        if (existing?.summary && existing?.detailedSummary) {
           logger.debug({ repo: item.name }, 'Using cached summary');
           await saveOrUpdateRepository(env.DB, repoInput, {
             summary: existing.summary,
+            detailedSummary: existing.detailedSummary,
           });
           return { ...item, summary: existing.summary };
         }
 
-        // 新規: README取得 → AI要約
-        const { summary } = await fetchAndSummarize({
+        // 新規 or 詳細要約が未生成: README取得 → AI要約
+        const { summary, detailedSummary } = await fetchAndSummarize({
           item,
           ai: env.AI,
         });
 
         // DB保存
-        await saveOrUpdateRepository(env.DB, repoInput, { summary });
+        await saveOrUpdateRepository(env.DB, repoInput, {
+          summary,
+          ...(detailedSummary ? { detailedSummary } : {}),
+        });
 
         return { ...item, summary };
       }),

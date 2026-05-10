@@ -1,15 +1,24 @@
 import { parseHTML } from 'linkedom';
-import type { TrendItem } from '../types';
+
+export type TrendItem = {
+  name: string;
+  url: string;
+  description: string;
+  language: string;
+  stars: number;
+  starsToday: number;
+};
 
 /**
  * GitHubのトレンド情報を取得します。
  */
 export async function fetchTrendingRepositories(
-  targetLanguage?: string,
+  targetLanguage: string,
 ): Promise<TrendItem[]> {
-  const url = targetLanguage
-    ? `https://github.com/trending/${targetLanguage}`
-    : 'https://github.com/trending';
+  const url =
+    targetLanguage === 'all'
+      ? 'https://github.com/trending'
+      : `https://github.com/trending/${targetLanguage}`;
 
   const response = await fetch(url);
   if (!response.ok) {

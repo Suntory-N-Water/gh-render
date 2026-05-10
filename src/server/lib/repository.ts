@@ -17,6 +17,7 @@ type SummaryInput = {
 
 export type RepositoryWithSummary = schema.Repository & {
   summary: string | null;
+  detailedSummary: string | null;
 };
 
 export async function saveOrUpdateRepository(
@@ -123,11 +124,19 @@ export async function getRepositories(
     .select({
       ...repoColumns,
       summary: schema.repositorySummaries.summary,
+      detailedSummary: schema.repositoryDetailedSummaries.detailedSummary,
     })
     .from(schema.repositories)
     .leftJoin(
       schema.repositorySummaries,
       eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
+    )
+    .leftJoin(
+      schema.repositoryDetailedSummaries,
+      eq(
+        schema.repositories.id,
+        schema.repositoryDetailedSummaries.repositoryId,
+      ),
     )
     .where(inArray(schema.repositories.url, urls));
 
