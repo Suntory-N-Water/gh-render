@@ -170,3 +170,6 @@ dist
 
 build/
 cloudflare-testing
+
+temp/*
+!temp/.gitkeep
