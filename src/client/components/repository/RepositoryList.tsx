@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { Repository } from '@/client/hooks/useRepositories';
 import { RepositoryCard } from './RepositoryCard';
 import { SkeletonCard } from './SkeletonCard';
@@ -21,10 +21,9 @@ export function RepositoryList({
   query,
   onLoadMore,
 }: Props) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const sentinel = sentinelRef.current;
     if (!sentinel) {
       return;
     }
@@ -40,7 +39,7 @@ export function RepositoryList({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [onLoadMore]);
+  }, [sentinel, onLoadMore]);
 
   if (!isLoading && repositories.length === 0) {
     return <EmptyState query={query} />;
@@ -59,7 +58,7 @@ export function RepositoryList({
           ))}
       </div>
 
-      {hasNext && !isLoading && <div ref={sentinelRef} className='h-1' />}
+      {hasNext && !isLoading && <div ref={setSentinel} className='h-1' />}
     </div>
   );
 }

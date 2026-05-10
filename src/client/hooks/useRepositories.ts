@@ -77,10 +77,18 @@ export function useRepositories({ lang, sort, q }: Params) {
     [searchResults, lang, sort],
   );
 
-  const languages = useMemo(
-    () => [...new Set(pool.map((r) => r.language).filter(Boolean))].sort(),
-    [pool],
-  );
+  const languages = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of pool) {
+      const lang = r.language;
+      if (lang && lang !== 'Unknown') {
+        counts.set(lang, (counts.get(lang) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([lang]) => lang);
+  }, [pool]);
 
   useEffect(() => {
     if (didFetch) {
