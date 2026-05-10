@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://gh-render.ayasnppk00.workers.dev/sitemap.xml
