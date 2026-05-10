@@ -80,33 +80,6 @@ export async function saveOrUpdateRepository(
         set: { detailedSummary: summaries.detailedSummary, updatedAt: now },
       });
   }
-
-  // FTS5 同期: 現在の要約を取得してからエントリを差し替える
-  const [ftsData] = await db
-    .select({
-      summary: schema.repositorySummaries.summary,
-      detailedSummary: schema.repositoryDetailedSummaries.detailedSummary,
-    })
-    .from(schema.repositories)
-    .leftJoin(
-      schema.repositorySummaries,
-      eq(schema.repositories.id, schema.repositorySummaries.repositoryId),
-    )
-    .leftJoin(
-      schema.repositoryDetailedSummaries,
-      eq(
-        schema.repositories.id,
-        schema.repositoryDetailedSummaries.repositoryId,
-      ),
-    )
-    .where(eq(schema.repositories.id, saved.id));
-
-  // FTS5 は rowid で識別するため、既存エントリを削除してから再挿入する
-  await db.run(sql`DELETE FROM repositories_fts WHERE rowid = ${saved.id}`);
-  await db.run(
-    sql`INSERT INTO repositories_fts(rowid, url, description, summary, detailed_summary)
-        VALUES (${saved.id}, ${repo.url}, ${repo.description}, ${ftsData?.summary ?? ''}, ${ftsData?.detailedSummary ?? ''})`,
-  );
 }
 
 export async function getRepositories(

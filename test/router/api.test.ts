@@ -13,7 +13,6 @@ afterEach(async () => {
   await d.delete(schema.repositorySummaries);
   await d.delete(schema.repositoryReadmes);
   await d.delete(schema.repositories);
-  await env.DB.prepare('DELETE FROM repositories_fts').run();
   vi.useRealTimers();
 });
 
@@ -86,46 +85,6 @@ describe('リポジトリ一覧取得 API', () => {
 
         expect(body.repositories[0].detailedSummary).toBe('詳細要約');
       });
-    });
-  });
-});
-
-describe('全文検索 API', () => {
-  describe('正常系', () => {
-    it('検索キーワードに一致するリポジトリが存在するとき、該当リポジトリが返ること', async () => {
-      await seed(
-        {
-          url: 'https://github.com/test/rust-repo',
-          description: 'A fast async runtime',
-        },
-        'blazing fast performance',
-      );
-
-      const res = await app.request(
-        '/api/repositories/search?q=blazing',
-        {},
-        env,
-      );
-      const body = await res.json<{ repositories: { url: string }[] }>();
-
-      expect(res.status).toBe(200);
-      expect(body.repositories).toHaveLength(1);
-      expect(body.repositories[0].url).toBe(
-        'https://github.com/test/rust-repo',
-      );
-    });
-
-    it('どのリポジトリにも一致しないキーワードで検索したとき、空の結果が返ること', async () => {
-      await seed({ description: 'TypeScript library' });
-
-      const res = await app.request(
-        '/api/repositories/search?q=nonexistentterm',
-        {},
-        env,
-      );
-      const body = await res.json<{ repositories: { url: string }[] }>();
-
-      expect(body.repositories).toHaveLength(0);
     });
   });
 });

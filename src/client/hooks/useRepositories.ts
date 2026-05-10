@@ -1,18 +1,14 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
-  useTransition,
 } from 'react';
 import type { InferResponseType } from 'hono/client';
 import { client } from '@/client/lib/api-client';
 
 type ListResponse = InferResponseType<typeof client.api.repositories.$get, 200>;
-type SearchResponse = InferResponseType<
-  typeof client.api.repositories.search.$get,
-  200
->;
 
 export type Repository = ListResponse['repositories'][number];
 
@@ -29,6 +25,20 @@ const PAGE_SIZE = 20;
 // remount で再フェッチしないためのモジュールレベルキャッシュ
 let poolCache: Repository[] = [];
 let didFetch = false;
+
+function applySearch(repos: Repository[], q: string): Repository[] {
+  if (!q) {
+    return repos;
+  }
+  const lower = q.toLowerCase();
+  return repos.filter(
+    (r) =>
+      r.url.toLowerCase().includes(lower) ||
+      r.description.toLowerCase().includes(lower) ||
+      r.summary?.toLowerCase().includes(lower) ||
+      r.detailedSummary?.toLowerCase().includes(lower),
+  );
+}
 
 function applyLangFilter(repos: Repository[], lang: string): Repository[] {
   if (!lang || lang === 'all') {
@@ -52,30 +62,19 @@ export function useRepositories({ lang, sort, q }: Params) {
   const [isLoading, setIsLoading] = useState(!didFetch);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
+  const deferredQ = useDeferredValue(q);
+
   // フィルタ変化時に displayCount を render 中にリセット
   const [prevLang, setPrevLang] = useState(lang);
   const [prevSort, setPrevSort] = useState(sort);
-  const [prevQ, setPrevQ] = useState(q);
+  const [prevQ, setPrevQ] = useState(deferredQ);
 
-  if (prevLang !== lang || prevSort !== sort || prevQ !== q) {
+  if (prevLang !== lang || prevSort !== sort || prevQ !== deferredQ) {
     setPrevLang(lang);
     setPrevSort(sort);
-    setPrevQ(q);
+    setPrevQ(deferredQ);
     setDisplayCount(PAGE_SIZE);
   }
-
-  const [searchResults, setSearchResults] = useState<Repository[]>([]);
-  const [isSearchPending, startSearchTransition] = useTransition();
-
-  const filteredRepositories = useMemo(
-    () => applySort(applyLangFilter(pool, lang), sort),
-    [pool, lang, sort],
-  );
-
-  const filteredSearchResults = useMemo(
-    () => applySort(applyLangFilter(searchResults, lang), sort),
-    [searchResults, lang, sort],
-  );
 
   const languages = useMemo(() => {
     const counts = new Map<string, number>();
@@ -104,30 +103,21 @@ export function useRepositories({ lang, sort, q }: Params) {
     });
   }, []);
 
-  useEffect(() => {
-    if (!q) {
-      return;
-    }
-    startSearchTransition(async () => {
-      const res = await client.api.repositories.search.$get({ query: { q } });
-      const data: SearchResponse = await res.json();
-      setSearchResults(data.repositories);
-    });
-  }, [q]);
+  const filtered = useMemo(
+    () => applySort(applyLangFilter(applySearch(pool, deferredQ), lang), sort),
+    [pool, deferredQ, lang, sort],
+  );
 
   const loadMore = useCallback(() => {
     setDisplayCount((prev) => prev + PAGE_SIZE);
   }, []);
 
-  const repositories = q
-    ? filteredSearchResults
-    : filteredRepositories.slice(0, displayCount);
-
-  const hasNext = q ? false : displayCount < filteredRepositories.length;
+  const repositories = deferredQ ? filtered : filtered.slice(0, displayCount);
+  const hasNext = deferredQ ? false : displayCount < filtered.length;
 
   return {
     repositories,
-    isLoading: isLoading || (q ? isSearchPending : false),
+    isLoading,
     hasNext,
     loadMore,
     languages,
