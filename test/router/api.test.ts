@@ -41,7 +41,7 @@ const seed = async (
 describe('リポジトリ一覧取得 API', () => {
   describe('正常系', () => {
     describe('ページネーション', () => {
-      it('cursor なしのとき、先頭からデータが返ること', async () => {
+      it('offset なしのとき、先頭からデータが返ること', async () => {
         await seed({ url: 'https://github.com/test/repo1' });
         await seed({ url: 'https://github.com/test/repo2' });
 
@@ -52,7 +52,7 @@ describe('リポジトリ一覧取得 API', () => {
         expect(body.repositories).toHaveLength(2);
       });
 
-      it('cursor を渡したとき、続きのデータが返ること', async () => {
+      it('offset を渡したとき、続きのデータが返ること', async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2024-01-01T00:00:00Z'));
         await seed({ url: 'https://github.com/test/repo-old' });
@@ -61,16 +61,15 @@ describe('リポジトリ一覧取得 API', () => {
         await seed({ url: 'https://github.com/test/repo-new' });
 
         const first = await app.request('/api/repositories?limit=1', {}, env);
-        const { repositories, nextCursor } = await first.json<{
+        const { repositories } = await first.json<{
           repositories: { url: string }[];
-          nextCursor: number;
+          hasNext: boolean;
         }>();
 
         expect(repositories[0].url).toBe('https://github.com/test/repo-new');
-        expect(nextCursor).toBeDefined();
 
         const second = await app.request(
-          `/api/repositories?limit=1&cursor=${nextCursor}`,
+          '/api/repositories?limit=1&offset=1',
           {},
           env,
         );
@@ -82,7 +81,7 @@ describe('リポジトリ一覧取得 API', () => {
         );
       });
 
-      it('limit を超えるデータが存在するとき、limit 件数のデータが返ること', async () => {
+      it('limit を超えるデータが存在するとき、limit 件数のデータと hasNext=true が返ること', async () => {
         for (let i = 0; i < 5; i += 1) {
           await seed({ url: `https://github.com/test/repo${i}` });
         }
@@ -90,11 +89,36 @@ describe('リポジトリ一覧取得 API', () => {
         const res = await app.request('/api/repositories?limit=3', {}, env);
         const body = await res.json<{
           repositories: unknown[];
-          nextCursor: number;
+          hasNext: boolean;
         }>();
 
         expect(body.repositories).toHaveLength(3);
-        expect(body.nextCursor).toBeDefined();
+        expect(body.hasNext).toBe(true);
+      });
+
+      it('最終ページのとき hasNext=false が返ること', async () => {
+        await seed({ url: 'https://github.com/test/repo1' });
+        await seed({ url: 'https://github.com/test/repo2' });
+
+        const res = await app.request('/api/repositories?limit=5', {}, env);
+        const body = await res.json<{ hasNext: boolean }>();
+
+        expect(body.hasNext).toBe(false);
+      });
+    });
+
+    describe('ソート', () => {
+      it('sort=stars のとき、スター数降順で返ること', async () => {
+        await seed({ url: 'https://github.com/test/low-star', stars: 10 });
+        await seed({ url: 'https://github.com/test/high-star', stars: 999 });
+
+        const res = await app.request('/api/repositories?sort=stars', {}, env);
+        const body = await res.json<{
+          repositories: { url: string; stars: number }[];
+        }>();
+
+        expect(body.repositories[0].stars).toBe(999);
+        expect(body.repositories[1].stars).toBe(10);
       });
     });
 
@@ -133,17 +157,27 @@ describe('リポジトリ一覧取得 API', () => {
         expect(body.repositories).toHaveLength(0);
       });
     });
-  });
 
-  describe('異常系', () => {
-    it('不正な cursor 値を渡したとき、適切なエラーが返ること', async () => {
-      const res = await app.request(
-        '/api/repositories?cursor=invalid',
-        {},
-        env,
-      );
+    describe('detailedSummary', () => {
+      it('詳細要約があるとき、detailedSummary が返ること', async () => {
+        await saveOrUpdateRepository(
+          env.DB,
+          {
+            url: 'https://github.com/test/repo',
+            description: 'Test',
+            language: 'TypeScript',
+            stars: 100,
+          },
+          { summary: '短い要約', detailedSummary: '詳細要約' },
+        );
 
-      expect(res.status).toBe(400);
+        const res = await app.request('/api/repositories', {}, env);
+        const body = await res.json<{
+          repositories: { detailedSummary: string | null }[];
+        }>();
+
+        expect(body.repositories[0].detailedSummary).toBe('詳細要約');
+      });
     });
   });
 });
